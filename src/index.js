@@ -20,12 +20,13 @@ const imagesPerPage = 40;
 let currentSearchQuery = '';
 let isLoading = false;
 let totalImages = 0;
+let totalPages = 0;
 elements.form.addEventListener('submit', givePhotos);
 
 async function givePhotos(evt) {
   evt.preventDefault();
 
-  if (!elements.input.value) {
+  if (!elements.input.value.trim()) {
     return Notiflix.Notify.failure('Your input is empty', {
       showOnlyTheLastOne: true,
     });
@@ -37,9 +38,11 @@ async function givePhotos(evt) {
     position: 'center',
   });
 
+  totalImages = 0;
+  totalPages = 0;
   currentPage = 1;
   elements.gallery.innerHTML = '';
-
+  observer.unobserve(target);
   try {
     const imagesData = await servicePhoto(currentSearchQuery);
     elements.input.value = '';
@@ -58,7 +61,7 @@ async function givePhotos(evt) {
     renderGalleryMarkup(imagesData);
     Notiflix.Block.remove('.main-wrapper');
     lightbox.refresh();
-    createIntersectionObserver();
+    observer.observe(target);
   } catch (error) {
     console.warn(error.message);
   } finally {
@@ -73,7 +76,7 @@ async function servicePhoto(query) {
 
     totalImages = response.data.totalHits;
     currentPage += 1;
-
+    totalPages = Math.ceil(totalImages / imagesPerPage);
     return response.data.hits;
   } catch (error) {
     console.error('Error fetching images:', error);
@@ -137,15 +140,8 @@ const observerOptions = {
 
 const target = document.querySelector('.load-more');
 
-const createIntersectionObserver = () => {
-  const observer = new IntersectionObserver(async entries => {
-    if (isLoading) return;
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        loadMoreImages();
-      }
-    });
-  }, observerOptions);
-
-  observer.observe(target);
-};
+const observer = new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && currentPage <= totalPages) {
+    loadMoreImages();
+  }
+}, observerOptions);
